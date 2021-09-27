@@ -19,7 +19,7 @@ def Parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--data", dest="data", type=str, default=None, help='path to input data')
     parser.add_argument("-o", "--output", dest="output", type=str, default=None, help="path to output folder")
-    parser.add_argument("-p", "--cores", "cores", type=int, default=1,
+    parser.add_argument("-c", "--cores", dest="cores", type=int, default=1,
                         help="Number of cores to use for parallel processing")
 
     options = parser.parse_args()
