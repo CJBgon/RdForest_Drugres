@@ -32,7 +32,6 @@ def Parser():
     return options
 
 def datload(dat):
-    dat='~/Documents/Side_Projects/Caitlin/RandomForest/PRAD_gene_panel.csv'
     dt = pd.read_csv(dat, index_col=0)
     dt.dropna(axis=0, inplace=True)  # dropping patient PTP169-1, NA on the outcome.
     y, X = dt.iloc[:, 0], dt.iloc[:, 1:]
