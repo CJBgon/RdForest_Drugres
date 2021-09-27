@@ -10,6 +10,7 @@ import argparse
 import pandas as pd
 import numpy as np
 import xgboost as xgb
+from collections import Counter
 from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedKFold
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
 from imblearn.over_sampling import SMOTE
