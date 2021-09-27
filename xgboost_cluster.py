@@ -40,6 +40,11 @@ def datload(dat):
     return X_train,X_test,y_train,y_test
 
 def training(X_train, y_train, param_grid, p):
+
+    stratified_kfold = StratifiedKFold(n_splits=3,
+                                       shuffle=True,
+                                       random_state=345)
+
     pipeline_xgb = imbpipeline(steps=[['smote', SMOTE(random_state=11)],
                                       ['xgb', xgb.XGBClassifier()]
                                       ])
