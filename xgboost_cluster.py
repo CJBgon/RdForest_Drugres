@@ -32,10 +32,11 @@ def Parser():
     return options
 
 def datload(dat):
+    dat='~/Documents/Side_Projects/Caitlin/RandomForest/PRAD_gene_panel.csv'
     dt = pd.read_csv(dat, index_col=0)
     dt.dropna(axis=0, inplace=True)  # dropping patient PTP169-1, NA on the outcome.
     y, X = dt.iloc[:, 0], dt.iloc[:, 1:]
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=45)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
     print("training set value counts: %s, testing set value counts: %s"%(Counter(y_train), Counter(y_test)))
     return X_train,X_test,y_train,y_test
 
@@ -81,7 +82,7 @@ def main():
     X_train, X_test, y_train, y_test = datload(dat = options.data)
 
     model = training(X_train,
-                     X_test,
+                     y_train,
                      p=options.cores,
                      param_grid=parameters)
 
