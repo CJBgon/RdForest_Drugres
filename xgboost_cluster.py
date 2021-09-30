@@ -10,17 +10,20 @@ import argparse
 import pandas as pd
 import numpy as np
 import xgboost as xgb
+import warnings
 from collections import Counter
-from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedKFold
+from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedKFold, RandomizedSearchCV
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
 from imblearn.over_sampling import SMOTE
 from imblearn.pipeline import Pipeline as imbpipeline
+from ray import tune
+
 
 def Parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--data", dest="data", type=str, default=None, help='path to input data')
     parser.add_argument("-o", "--output", dest="output", type=str, default=None, help="path to output folder")
-    parser.add_argument("-c", "--cores", dest="cores", type=int, default=1,
+    parser.add_argument("-c", "--cores", dest="cores", type=int, default=-1,
                         help="Number of cores to use for parallel processing")
 
     options = parser.parse_args()
@@ -31,22 +34,24 @@ def Parser():
 
     return options
 
+
 def datload(dat):
     dt = pd.read_csv(dat, index_col=0)
-    dt.dropna(axis=0, inplace=True)  # dropping patient PTP169-1, NA on the outcome.
+    dt.dropna(axis=0, inplace=True)
     y, X = dt.iloc[:, 0], dt.iloc[:, 1:]
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
     print("training set value counts: %s, testing set value counts: %s"%(Counter(y_train), Counter(y_test)))
     return X_train,X_test,y_train,y_test
 
-def training(X_train, y_train, param_grid, p):
+
+def grid_training(X_train, y_train, param_grid, p):
 
     stratified_kfold = StratifiedKFold(n_splits=3,
                                        shuffle=True,
                                        random_state=345)
 
     pipeline_xgb = imbpipeline(steps=[['smote', SMOTE(random_state=11)],
-                                      ['xgb', xgb.XGBClassifier()]
+                                      ['xgb', xgb.XGBClassifier(objective='binary:logistic')]
                                       ])
 
     grid_search_xgb = GridSearchCV(estimator=pipeline_xgb,
@@ -58,9 +63,28 @@ def training(X_train, y_train, param_grid, p):
     grid_search_xgb.fit(X_train, y_train)
     return grid_search_xgb
 
+def rand_training(X_train, y_train, param_grid, p):
+    stratified_kfold = StratifiedKFold(n_splits=3,
+                                       shuffle=True,
+                                       random_state=345)
+
+    pipeline_xgb = imbpipeline(steps=[['smote', SMOTE(random_state=11)],
+                                      ['xgb', xgb.XGBClassifier(objective='binary:logistic')]
+                                      ])
+
+    rand_search_xgb = RandomizedSearchCV(estimator=pipeline_xgb,
+                                         param_grid=param_grid,
+                                         scoring='f1',
+                                         cv=stratified_kfold,
+                                         n_jobs=p)
+
+    rand_search_xgb.fit(X_train, y_train)
+    return rand_search_xgb
+
 
 # main:
 def main():
+    warnings.filterwarnings("ignore", category=UserWarning)
     options = Parser()
 
     parameters = {'smote__sampling_strategy': [0.6, 0.7, 0.8],
@@ -71,16 +95,17 @@ def main():
                   'xgb__min_child_weight': [1, 2, 5],
                   'xgb__max_delta_step': [1,5,7],
                   'xgb__booster': ['gbtree', 'gblinear', 'dart'],
-                  'xgb__eval_metric': ['auc'],
+                  'xgb__eval_metric': [['auc', 'aucpr']],
                   'xgb__gamma': [0, 0.2, 0.5, 0,8, 1],
                   'xgb__reg_alpha': [0, 0.1, 0.3, 0.5, 0.7, 1],
                   'xgb__reg_lambda': [0.1, 0.3,0.5, 1, 5, 10],
                   'xgb__base_score': [0.2, 0.5, 1],
                   'xgb__colsample_bytree': [0.5, 1],
                   }
+
     X_train, X_test, y_train, y_test = datload(dat = options.data)
 
-    model = training(X_train,
+    model = rand_training(X_train,
                      y_train,
                      p=options.cores,
                      param_grid=parameters)
@@ -89,7 +114,7 @@ def main():
     test_score = model.score(X_test, y_test)
 
 
-    print('***************************** model evalation ***************************** ')
+    print('***************************** model evaluation ***************************** ')
     print("Parameters: ", model.best_params_)
     print(f'Cross-validation score: {cv_score}\nTest score: {test_score}')
 
